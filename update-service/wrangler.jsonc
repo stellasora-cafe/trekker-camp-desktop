@@ -1,0 +1,17 @@
+{
+  "name": "stellasora-update-feed",
+  "main": "_worker.js",
+  "compatibility_date": "2026-11-16",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "update.stellasora.cafe/*", "zone_name": "stellasora.cafe" }
+  ],
+  "r2_buckets": [
+    { "binding": "RELEASES", "bucket_name": "stellasora-app-releases" }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  }
+}

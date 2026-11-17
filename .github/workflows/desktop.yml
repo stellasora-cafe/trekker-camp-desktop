@@ -1,0 +1,58 @@
+name: Desktop
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+      # JavaScript dependencies are used by host protocol tests, not bundled.
+      - run: pnpm install --frozen-lockfile
+      - run: node --test update-service/worker.test.mjs
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - run: node --test scripts/prepare-release.test.mjs scripts/package-files.test.mjs scripts/third-party-licenses.test.mjs scripts/package-restart.test.mjs
+      - run: go tool mygo build -platform windows/amd64
+      - run: go vet ./...
+      - run: go tool mygo vet .
+      - run: go test ./... -timeout 3m
+      - name: Verify signed updates preserve local data
+        working-directory: third_party/mygo
+        run: go test . -run '^(TestUpdater|TestUpdaterSource|TestUpdaterWaitsForOpenFiles|TestCampPackageUpdatePreservesLocalStores)$' -timeout 2m
+      - name: Smoke-test Windows installer and uninstaller
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $setup = Get-ChildItem build/windows-amd64 -Filter 'trekker-camp-setup-*-amd64.exe' -File
+          if (@($setup).Count -ne 1) { throw 'Expected one Windows setup executable' }
+          $folder = Join-Path $env:RUNNER_TEMP 'TrekkerCamp-smoke'
+          $install = Start-Process $setup.FullName -ArgumentList "/S /D=$folder" -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Installer exited $($install.ExitCode)" }
+          $exe = Get-Item -LiteralPath (Join-Path $folder 'TrekkerCamp.exe')
+          $probe = Start-Process $exe.FullName -ArgumentList '--check-webview-runtime' -PassThru
+          Wait-Process -InputObject $probe -Timeout 30
+          if ($probe.ExitCode -notin 0, 2) { throw "WebView2 probe exited $($probe.ExitCode)" }
+          if (-not (Test-Path -LiteralPath (Join-Path $folder 'resources/licenses/LICENSE'))) { throw 'License missing from installed app' }
+          $uninstall = Start-Process (Join-Path $folder 'Uninstall.exe') -ArgumentList '/S' -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path -LiteralPath $folder)) { throw 'Silent uninstall did not remove the installation' }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: camp-desktop-windows-amd64
+          path: build/windows-amd64/
+          if-no-files-found: error

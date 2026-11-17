@@ -1,0 +1,53 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!doctype html>
+<meta charset="utf-8">
+<title>Ruby layout reference</title>
+<style>
+@font-face { font-family: RubyFixture; src: url('/client-assets/camp/fonts/misans-v1/MiSans-Medium.woff2'); font-weight: 400 }
+@font-face { font-family: RubyFixture; src: url('/client-assets/camp/fonts/misans-v1/MiSans-Bold.woff2'); font-weight: 700 }
+body { margin: 0; font: 24px/1.35 RubyFixture; background: white }
+.row { display: flow-root; margin: 20px; width: 600px; white-space: pre-wrap }
+.baseline { display: inline-block; width: 0; height: 0 }
+.block { display: inline-block }
+.x2 { font-size: 200% }
+</style>
+<div id="cases"></div>
+<script>
+const cases = [
+ ['short', '前 <ruby>漢字<rt>かんじ</rt></ruby> 后'],
+ ['wide', '前 <ruby>字<rt>lengthyannotation</rt></ruby> 后'],
+ ['plainLatin', '前 <ruby>AB<rt>annotation</rt></ruby> 后'],
+ ['styled', '前 <ruby><b><span class="block">AB</span></b><rt>annotation</rt></ruby> 后'],
+ ['large', '前 <ruby><span class="x2">AB</span><rt>annotation</rt></ruby> 后'],
+ ['alone', '<ruby>字<rt>lengthyannotation</rt></ruby>'],
+ ['beforeOnly', '前 <ruby>字<rt>lengthyannotation</rt></ruby>'],
+ ['afterOnly', '<ruby>字<rt>lengthyannotation</rt></ruby> 后'],
+ ['adjacent', '<ruby>字<rt>lengthyannotation</rt></ruby><ruby>字<rt>lengthyannotation</rt></ruby>'],
+ ['multi', '段落第一行\n第二行<ruby>漢字<rt>かんじ</rt></ruby>结束\n第三行'],
+ ['outerBlock', '前 <span class="block"><ruby>字<rt>lengthyannotation</rt></ruby></span> 后'],
+ ['plainWrapper', '前 <b><ruby>字<rt>lengthyannotation</rt></ruby></b> 后'],
+ ['nested', '前 <ruby><ruby>漢字<rt>かんじ</rt></ruby><rt>outer annotation</rt></ruby> 后'],
+ ['empty', '前 <ruby><rt>annotation</rt></ruby> 后'],
+ ['nestedBlocks', '前 <span class="block"><b><span class="block"><ruby>漢字<rt>かんじ</rt></ruby></span></b></span> 后'],
+];
+for (const [id, markup] of cases) {
+ const row = document.createElement('div');
+ row.className = 'row'; row.id = id;
+ row.innerHTML = markup + '<span class="baseline"></span>';
+ document.querySelector('#cases').append(row);
+}
+window.measureRuby = async function(scale = devicePixelRatio) {
+ await document.fonts.ready;
+ const zoom = scale / devicePixelRatio;
+ document.body.style.zoom = zoom;
+ const rect = (el, origin) => {
+  const r = el.getBoundingClientRect();
+  return { x: (r.x - origin.x) / zoom, y: (r.y - origin.y) / zoom, width: r.width / zoom, height: r.height / zoom };
+ };
+ return [...document.querySelectorAll('.row')].map(row => {
+  const origin = row.getBoundingClientRect();
+  return { id: row.id, scale, height: origin.height / zoom, baseline: rect(row.querySelector('.baseline'), origin).y,
+   ruby: [...row.querySelectorAll('ruby')].map(ruby => ({ base: rect(ruby, origin), annotation: rect(ruby.querySelector(':scope > rt'), origin) })) };
+ });
+};
+</script>

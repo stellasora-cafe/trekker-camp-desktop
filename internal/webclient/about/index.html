@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- SPDX-FileCopyrightText: trekker-camp contributors
+SPDX-License-Identifier: Apache-2.0 -->
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>关于营地</title><link rel="stylesheet" href="/about.css"><script src="/about.js" defer></script></head>
+<body><header id="chrome"><div id="drag"></div><button data-action="minimize" aria-label="最小化" title="最小化">{{.Minimize}}</button><button data-action="maximize" aria-label="最大化" title="最大化"><span class="maximize-icon">{{.Maximize}}</span><span class="restore-icon">{{.Restore}}</span></button><button data-action="close" aria-label="关闭窗口" title="关闭窗口">{{.Close}}</button></header>
+<main><section class="hero"><div class="brand fallback"><span>营地</span><img src="/images/camp-icon.png" alt="旅人营地"></div><h1>旅人营地</h1><p>《星塔旅人》的非官方社区<br>爱与希望，就在路上。</p><small>客户端版本 {{.Version}}</small></section>
+<section class="team"><a class="identity" href="https://github.com/stellasora-cafe"><div class="avatar fallback"><span>星塔</span><img src="/images/organization.png" alt=""></div><div><small>开发与维护</small><br><strong>星塔咖啡厅 · StellaSora Café</strong></div><span class="external">↗</span></a></section>
+<section class="links" aria-label="相关链接">
+<a class="link" href="https://github.com/stellasora-cafe/trekker-camp">查看仓库代码 <span>↗</span></a>
+<a class="link" href="camp-desktop://about-misskey">关于 Misskey <span>›</span></a>
+<details>
+<summary>开源许可与鸣谢</summary>
+<ul>
+<li>旅人营地客户端与更新服务 · Apache-2.0</li>
+<li>Misskey 网页界面 · AGPL-3.0-only</li>
+<li>MyGo · MIT</li>
+</ul>
+<p>本应用使用 MiSans 字体。<a href="camp-desktop://font-license">查看字体许可</a></p>
+<a href="https://github.com/stellasora-cafe/trekker-camp-desktop/blob/master/LICENSING.md">查看完整许可说明 ↗</a>
+</details>
+</section></main></body></html>

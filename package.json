@@ -1,0 +1,14 @@
+{
+	"name": "trekker-camp-desktop",
+	"private": true,
+	"packageManager": "pnpm@12.17.0",
+	"type": "module",
+	"scripts": {
+		"test": "node --test scripts/*.test.mjs update-service/worker.test.mjs"
+	},
+	"devDependencies": {
+		"@aws-sdk/client-s3": "3.1161.0",
+		"happy-dom": "21.0.4",
+		"tar": "7.5.22"
+	}
+}

@@ -1,0 +1,50 @@
+name: Publish desktop update feed
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-stable-feed
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: startsWith(github.event.release.tag_name, 'desktop-v') && !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    environment: desktop-release
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: pnpm/action-setup@v6.1.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Download reviewed release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release download "$RELEASE_TAG" --dir release --pattern 'update-windows-amd64.json' --pattern '*.tar.gz'
+      - name: Validate version and select trusted signing key
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const config = JSON.parse(fs.readFileSync('mygo.json', 'utf8'));
+          const manifest = JSON.parse(fs.readFileSync('release/update-windows-amd64.json', 'utf8'));
+          if (process.env.RELEASE_TAG !== `desktop-v${config.version}` || manifest.version !== config.version) throw new Error('Release version mismatch');
+          fs.writeFileSync('release/update.pub', config.updates.publicKey);
+          JS
+      - name: Verify signed package and activate update feed
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_UPDATE_PUBLISH_TOKEN }}
+        run: |
+          node scripts/verify-package.mjs release --require-fonts
+          node update-service/publish.mjs trekker-camp stable release/update-windows-amd64.json release/update.pub

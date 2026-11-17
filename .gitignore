@@ -1,0 +1,13 @@
+/build/
+/node_modules/
+/private-assets/
+/release/
+/update-service/.wrangler/
+/trekker-camp.exe
+/desktop.exe
+/artifacts/
+/.release-resources/
+/internal/webfrontend/assets/frontend.zip
+/internal/webfrontend/assets/frontend.zip.tmp
+/.release-source/
+/.mygo/

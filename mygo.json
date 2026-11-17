@@ -1,0 +1,28 @@
+{
+  "name": "TrekkerCamp",
+  "slug": "trekker-camp",
+  "identifier": "cafe.stellasora.camp",
+  "version": "0.1.2",
+  "icon": "assets/app-icon-512-v1.png",
+  "out": "build",
+  "buildCommand": "node scripts/prepare-release.mjs",
+  "license": "Apache-2.0",
+  "publisher": "星塔咖啡厅 · StellaSora Café",
+  "i18n": {
+    "dir": "locales",
+    "source": "zh-Hans"
+  },
+  "resources": [
+    ".release-resources/resources"
+  ],
+  "updates": {
+    "url": "https://update.stellasora.cafe/v1/trekker-camp/stable",
+    "publicKey": "UsfTmcN1pfdpucQz9/rCAyXmTP1dBhdVg0JxH7GfE0g=",
+    "deltas": 0
+  },
+  "windows": {
+    "displayName": "旅人营地",
+    "installDirName": "TrekkerCamp",
+    "installerInclude": "installer/webview2.nsh"
+  }
+}

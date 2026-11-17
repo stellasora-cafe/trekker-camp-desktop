@@ -1,0 +1,91 @@
+name: Desktop release
+
+on:
+  push:
+    tags: ['desktop-v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    environment: desktop-release
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Validate release version
+        shell: pwsh
+        env:
+          ASSETS_REVISION: ${{ vars.CAMP_DESKTOP_ASSETS_REVISION }}
+        run: |
+          $config = Get-Content mygo.json -Raw | ConvertFrom-Json
+          if ($env:GITHUB_REF_NAME -cne "desktop-v$($config.version)") { throw 'Tag must match mygo.json version' }
+          if ($config.version -notmatch '^\d+\.\d+\.\d+$') { throw 'A stable desktop version is required' }
+          if ($env:ASSETS_REVISION -notmatch '^[a-f0-9]{40}$') { throw 'Pin CAMP_DESKTOP_ASSETS_REVISION to the reviewed fonts commit' }
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: stellasora-cafe/trekker-camp-assets
+          ref: ${{ vars.CAMP_DESKTOP_ASSETS_REVISION }}
+          token: ${{ secrets.CAMP_ASSETS_READ_TOKEN }}
+          path: private-assets
+          lfs: true
+          persist-credentials: false
+          sparse-checkout: |
+            public/fonts/misans-v1
+            originals/fonts/misans-v1
+      - name: Prepare organization artwork
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .release-source/about | Out-Null
+          Invoke-WebRequest -Uri 'https://avatars.githubusercontent.com/u/356607548?v=4' -OutFile .release-source/about/organization.png
+      - uses: pnpm/action-setup@v6.1.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+      # Test dependencies only; the frontend is delivered by the server.
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Build signed application and installer
+        shell: pwsh
+        env:
+          CGO_ENABLED: '0'
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+          CAMP_DESKTOP_ASSETS_REVISION: ${{ vars.CAMP_DESKTOP_ASSETS_REVISION }}
+        run: |
+          if (-not $env:MYGO_UPDATER_PRIVATE_KEY) { throw 'Missing update signing key' }
+          $env:CAMP_DESKTOP_ASSETS_DIR = Join-Path $env:GITHUB_WORKSPACE 'private-assets/public'
+          node --test scripts/prepare-release.test.mjs scripts/package-files.test.mjs scripts/third-party-licenses.test.mjs scripts/package-restart.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go tool mygo build -platform windows/amd64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          go test ./internal/webclient ./internal/webfrontend ./internal/webassets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path build/windows-amd64/update-windows-amd64.json)) { throw 'Signed update manifest missing' }
+          node scripts/verify-package.mjs build/windows-amd64 --require-fonts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Create reviewable release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $assets = @(Get-ChildItem build/windows-amd64 -File | Where-Object { $_.Name -like '*-setup-*.exe' -or $_.Name -like '*.tar.gz' -or $_.Name -eq 'update-windows-amd64.json' -or $_.Name -eq 'SHA256SUMS' } | ForEach-Object { $_.FullName })
+          $assets += (Resolve-Path build/SHA256SUMS).Path
+          if ($assets.Count -lt 3) { throw 'Incomplete desktop release' }
+          $notes = Join-Path $env:RUNNER_TEMP 'desktop-release-notes.md'
+          @"
+          旅人营地 Windows 客户端安装器与签名包体更新。
+
+          对应版本的完整源码及构建脚本：https://github.com/stellasora-cafe/trekker-camp-desktop/tree/$env:GITHUB_REF_NAME
+
+          原创桌面客户端代码采用 Apache-2.0；首次联网下载的 Misskey 前端保留 AGPL-3.0-only。安装器包含关于营地美术、MiSans 字体及许可，不携带前端、维护插图或其他私有素材。第三方许可见安装目录 resources/licenses。
+          "@ | Set-Content -LiteralPath $notes -Encoding utf8
+          gh release create $env:GITHUB_REF_NAME --verify-tag --draft --title "旅人营地客户端 $env:GITHUB_REF_NAME" --notes-file $notes @assets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
