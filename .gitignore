@@ -11,3 +11,5 @@
 /internal/webfrontend/assets/frontend.zip.tmp
 /.release-source/
 /.mygo/
+/.claude/settings.local.json
+/.claude/.credentials.json
