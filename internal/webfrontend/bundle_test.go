@@ -91,7 +91,7 @@ func TestNoAPIMediaOrPrivateFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, pathname := range []string{"/api/meta", "/api/client/i", "/client-streaming", "/streaming", "/files/file", "/proxy/image", "/client-assets/camp/private.png", "/vite/missing.js", "/bundle.json", "/vite/../bundle.json", "/vite//scripts/app.js"} {
+	for _, pathname := range []string{"/api/meta", "/api/client/i", "/url?url=https%3A%2F%2Fstellasora.jp%2Fagreement&lang=zh-CN", "/client-streaming", "/streaming", "/files/file", "/proxy/image", "/client-assets/camp/private.png", "/vite/missing.js", "/bundle.json", "/vite/../bundle.json", "/vite//scripts/app.js"} {
 		w := httptest.NewRecorder()
 		b.ServeHTTP(w, httptest.NewRequest(http.MethodGet, pathname, nil))
 		if w.Code != http.StatusNotFound {

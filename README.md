@@ -2,7 +2,7 @@
 
 [下载桌面客户端](https://github.com/stellasora-cafe/trekker-camp-desktop/releases) · [0.1.2 及更早版本](https://github.com/stellasora-cafe/trekker-camp/releases)
 
-正式客户端使用 Go 1.27.3 和 [MyGo v0.9.2](https://github.com/egoist/mygo/releases/tag/v0.9.2) 托管完整前端，Windows 使用系统 WebView2。页面、控件、MFM、动画和路由直接复用本站前端；登录或注册时从服务器按需加载页面，完整前端包在页面显示后后台下载到安装目录，后续使用缓存并检查更新。安装器和 EXE 不携带前端 ZIP。Go 外壳负责窗口、桌面设备协议、持久会话和资源缓存。发布版默认连接 `https://camp.stellasora.cafe`；开发版与 `go run .` 默认连接 `http://localhost:3000`。
+正式客户端使用 Go 1.27.3 和 [MyGo v0.10.0](https://github.com/egoist/mygo/releases/tag/v0.10.0) 托管完整前端，Windows 使用系统 WebView2。页面、控件、MFM、动画和路由直接复用本站前端；登录或注册时从服务器按需加载页面，完整前端包在页面显示后后台下载到安装目录，后续使用缓存并检查更新。安装器和 EXE 不携带前端 ZIP。Go 外壳负责窗口、桌面设备协议、持久会话和资源缓存。发布版默认连接 `https://camp.stellasora.cafe`；开发版与 `go run .` 默认连接 `http://localhost:3000`。
 
 正式入口是本目录的 `main.go`，应用逻辑位于 `internal/webclient/`。启动时在本地读取当前站点的加密登录会话：已登录直接进入营地并复用已有前端与浏览器缓存，更新在页面显示后后台检查；未登录显示原生欢迎页，使用正常账号登录；运行和发布均不依赖验收账号、fixture 或 `artifacts/local-ui-accounts.json`。
 

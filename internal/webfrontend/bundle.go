@@ -132,7 +132,7 @@ func IsDocumentPath(rawPath string) bool {
 	if _, ok := assetPath(strings.TrimSuffix(rawPath, "/")); !ok {
 		return false
 	}
-	for _, prefix := range []string{"/api", "/streaming", "/client-streaming", "/vite", "/assets", "/client-assets", "/static-assets", "/files", "/proxy", "/avatar", "/identicon", "/emoji", "/fluent-emoji", "/.well-known", "/__camp", "/_desktop"} {
+	for _, prefix := range []string{"/api", "/url", "/streaming", "/client-streaming", "/vite", "/assets", "/client-assets", "/static-assets", "/files", "/proxy", "/avatar", "/identicon", "/emoji", "/fluent-emoji", "/.well-known", "/__camp", "/_desktop"} {
 		if rawPath == prefix || strings.HasPrefix(rawPath, prefix+"/") {
 			return false
 		}

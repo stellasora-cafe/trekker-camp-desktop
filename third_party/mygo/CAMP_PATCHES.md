@@ -1,7 +1,7 @@
 # MyGo used by the desktop client
 
-This standalone module is based on `github.com/egoist/mygo` **v0.9.2**, upstream
-commit `25ce62f4d357cd6d29da04300e3fbc352d79daa4`. Its original **MIT** license is
+This standalone module is based on `github.com/egoist/mygo` **v0.10.0**, upstream
+commit `ebde9399baf2734b3361856a53f4036859973d1d`. Its original **MIT** license is
 preserved in `LICENSE`. Imports retain their upstream module path.
 
 The tree includes the runtime, UI, CLI, platform code, plugins, generators,
@@ -94,7 +94,9 @@ Local changes:
 - Media Foundation primes the initial video picture before starting the playback
   clock. A seekable source whose decoder prerolls at a later keyframe is positioned
   at its start before exposing the image. Initial pause/seek requests and audio-only
-  playback are preserved; the first-frame-ready event wakes the window.
+  playback are preserved. During an initial paused seek, the player schedules
+  stream ticks until Media Foundation reports that the seek has landed, so a
+  window waiting for its first picture continues to receive frames.
 - `VideoPlayer.Buffered()` exposes actual downloaded time ranges. On Windows,
   Media Foundation's `IMFMediaEngine.GetBuffered` supplies these intervals.
 - `VideoPlayer.HasAudio()` reports audio-track presence separately from metadata

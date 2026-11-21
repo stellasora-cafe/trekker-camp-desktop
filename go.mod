@@ -3,7 +3,7 @@ module github.com/stellasora-cafe/trekker-camp-desktop
 go 1.27.3
 
 require (
-	github.com/egoist/mygo v0.9.2
+	github.com/egoist/mygo v0.10.0
 	golang.org/x/net v0.59.0
 )
 

@@ -133,35 +133,44 @@ func (c *client) serveFrontendResource(w http.ResponseWriter, r *http.Request, f
 	frontend.Handler().ServeHTTP(w, r)
 }
 
-// The hidden cached page restores the actual WebView account before selecting
-// the native welcome window or the full desktop interface.
-func (c *client) openMain(afterLogin bool) {
-	if c.ctx.Err() != nil || c.packageRequired.Load() {
-		return
-	}
-	frontend := &frontendWindow{}
-	if c.updates != nil {
-		current, _ := c.updates.Current()
-		frontend.online.Store(afterLogin || current == nil)
-		if frontend.online.Load() {
-			ctx, cancel := context.WithTimeout(c.ctx, 2*time.Second)
-			frontend.onlineRevision, _ = c.updates.AvailableRevision(ctx)
-			cancel()
-		}
-	}
-	if c.ctx.Err() != nil || c.packageRequired.Load() {
-		return
-	}
+func (c *client) mainWindowOptions(frontend *frontendWindow) mygo.WindowOptions {
 	options := mygo.WindowOptions{
 		Title: "旅人营地", Width: 1280, Height: 800, UseContentSize: true,
 		MinWidth: 480, MinHeight: 480, BackgroundColor: "#edf2f8", StateKey: "main", Hidden: true,
 		Page: c.pageOptions(false, false, frontend.online.Load),
 	}
 	applyWindowChrome(&options, runtime.GOOS)
-	window := mygo.NewWindow(options)
+	return options
+}
+
+func (c *client) openMainAfterLogin() {
+	if c.ctx.Err() != nil || c.packageRequired.Load() {
+		return
+	}
+	frontend := &frontendWindow{}
+	frontend.online.Store(true)
+	window := mygo.NewWindow(c.mainWindowOptions(frontend))
 	previous := c.setMainWindow(window, false, frontend)
 	c.attachTrayClose(window)
 	c.configurePage(window, false)
+	c.loadMain(window, frontend)
+	if previous != nil {
+		previous.Destroy()
+	}
+}
+
+func (c *client) loadMain(window *mygo.Window, frontend *frontendWindow) {
+	if c.updates != nil && frontend.online.Load() {
+		ctx, cancel := context.WithTimeout(c.ctx, 2*time.Second)
+		revision, _ := c.updates.AvailableRevision(ctx)
+		cancel()
+		c.windowMu.Lock()
+		frontend.onlineRevision = revision
+		c.windowMu.Unlock()
+	}
+	if c.ctx.Err() != nil || c.packageRequired.Load() || window.IsDestroyed() {
+		return
+	}
 	if runtime.GOOS == "windows" {
 		_ = window.Page().LoadURL(c.origin + "/")
 		if c.updates != nil && !frontend.online.Load() {
@@ -171,9 +180,6 @@ func (c *client) openMain(afterLogin bool) {
 	} else {
 		c.connect()
 		window.Show()
-	}
-	if previous != nil {
-		previous.Destroy()
 	}
 }
 
@@ -377,7 +383,7 @@ func (c *client) handleWindowCommand(window *mygo.Window, raw string) bool {
 			if main && guest && !offline {
 				c.openGuest()
 			} else {
-				c.openMain(true)
+				c.openMainAfterLogin()
 				if u, err := url.Parse(window.Page().URL()); !offline && err == nil && u.Path == "/desktop-auth" {
 					window.Destroy()
 				}

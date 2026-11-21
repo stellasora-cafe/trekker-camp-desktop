@@ -5,8 +5,10 @@ package webclient
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -33,42 +35,52 @@ func (c *client) openBootstrap() {
 			return
 		}
 		target := c.origin + startupSessionPath
-		window := mygo.NewWindow(mygo.WindowOptions{
-			Title: "旅人营地", Width: 420, Height: 460, Hidden: true,
-			Page: mygo.PageOptions{
-				Untrusted: true, Session: c.session, PreloadScript: c.credentials.preload(),
-				ResourceFilter: func(raw string) bool { return raw == target || raw == c.origin+credentialPath },
-				ResourceHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if r.URL.String() == c.origin+credentialPath {
-						c.credentials.ServeHTTP(w, r)
-						return
-					}
-					w.Header().Set("Content-Type", "text/html; charset=utf-8")
-					w.Header().Set("Cache-Control", "no-store")
-					w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; connect-src 'self'")
-					_, _ = w.Write([]byte("<!doctype html><meta charset=utf-8><script>" + startupSessionScript + "</script>"))
-				}),
-			},
+		frontend := &frontendWindow{}
+		current, _ := c.updates.Current()
+		frontend.online.Store(current == nil)
+		options := c.mainWindowOptions(frontend)
+		page := &options.Page
+		pathJSON, _ := json.Marshal(target)
+		page.PreloadScript = "if(location.href===" + string(pathJSON) + "){" + c.credentials.preload() + "}else{" + page.PreloadScript + "}"
+		filter, handler := page.ResourceFilter, page.ResourceHandler
+		page.ResourceFilter = func(raw string) bool { return raw == target || filter(raw) }
+		page.ResourceHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.String() != target {
+				handler.ServeHTTP(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'")
+			_, _ = w.Write([]byte(strings.Replace(connectionDocument(nil), "</html>", "<script>"+startupSessionScript+"</script></html>", 1)))
 		})
+		window := mygo.NewWindow(options)
 		previous := c.setMainWindow(window, false, nil)
+		c.attachTrayClose(window)
 		var resolved atomic.Bool
+		var timer *time.Timer
 		finish := func(authenticated bool) {
 			mygo.RunOnMain(func() {
 				if c.ctx.Err() != nil || window.IsDestroyed() || !resolved.CompareAndSwap(false, true) {
 					return
 				}
+				timer.Stop()
 				if authenticated {
-					go c.openMain(false)
+					c.windowMu.Lock()
+					c.mainFrontend = frontend
+					c.windowMu.Unlock()
+					c.configurePage(window, false)
+					go c.loadMain(window, frontend)
 				} else {
 					c.openGuest()
 				}
 				go c.checkMaintenance()
 			})
 		}
-		timer := time.AfterFunc(8*time.Second, func() { finish(false) })
+		timer = time.AfterFunc(8*time.Second, func() { finish(false) })
 		window.OnClosed(func() { timer.Stop() })
 		window.Page().OnWillNavigate(func(e *mygo.NavigateEvent) {
-			if e.URL == target {
+			if resolved.Load() || e.URL == target {
 				return
 			}
 			e.PreventDefault()
@@ -82,6 +94,7 @@ func (c *client) openBootstrap() {
 				finish(false)
 			}
 		})
+		c.showReadyWindow(window)
 		go func() {
 			if window.Page().LoadURL(target) != nil {
 				finish(false)

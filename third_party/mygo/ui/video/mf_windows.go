@@ -164,7 +164,11 @@ func failed(hr uintptr) bool { return int32(uint32(hr)) < 0 }
 func cptr(a uintptr) unsafe.Pointer { return *(*unsafe.Pointer)(unsafe.Pointer(&a)) }
 
 // call calls method i of a COM object, returning its HRESULT, and what
-// the call left in the first floating point register on amd64.
+// the call left in the first floating point register on amd64. Pointers
+// converted to uintptr in the call stay valid until it returns
+// (go:uintptrescapes).
+//
+//go:uintptrescapes
 func call(obj uintptr, i int, args ...uintptr) uintptr {
 	r, _ := callRaw(obj, i, args...)
 	return r
@@ -273,6 +277,7 @@ type mfEngine struct {
 	rewindPreroll                                     bool
 	pendingSeek                                       bool
 	prerollStart                                      time.Duration
+	prerollTick                                       *time.Timer
 }
 
 // sharedFrame is a texture of the ring, and its surface.
@@ -497,6 +502,21 @@ func (e *mfEngine) Frame(time.Time) (media.Picture, bool, bool) {
 		}
 	}
 	if positioning {
+		// In frame-server mode a paused seek can need further stream ticks
+		// before Media Foundation emits SEEKED. Keep one wake outstanding.
+		e.mu.Lock()
+		if e.prerollTick == nil && !e.closed {
+			e.prerollTick = time.AfterFunc(time.Second/60, func() {
+				e.mu.Lock()
+				wake := e.wake
+				e.prerollTick = nil
+				e.mu.Unlock()
+				if wake != nil {
+					wake()
+				}
+			})
+		}
+		e.mu.Unlock()
 		return media.Picture{}, false, false
 	}
 	if fresh {
@@ -791,6 +811,9 @@ func (e *mfEngine) Close() error {
 		return nil
 	}
 	e.closed = true
+	if e.prerollTick != nil {
+		e.prerollTick.Stop()
+	}
 	e.wake = nil
 	e.mu.Unlock()
 	if e.engine != 0 {
